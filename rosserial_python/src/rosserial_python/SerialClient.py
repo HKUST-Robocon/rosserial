@@ -457,7 +457,7 @@ class SerialClient(object):
         data = ''
         read_step = None
         while self.write_thread.is_alive() and not rospy.is_shutdown():
-            if (rospy.Time.now() - self.lastsync).to_sec() > (self.timeout * 3):
+            if (rospy.Time.now() - max(self.lastsync, self.lastsync_success)).to_sec() > 3:
                 if self.synced:
                     rospy.logerr("Lost sync with device, restarting...")
                 else:
@@ -487,18 +487,18 @@ class SerialClient(object):
                 read_step = 'protocol'
                 flag[1] = self.tryRead(1)
                 if flag[1] != self.protocol_ver:
-                    self.sendDiagnostics(diagnostic_msgs.msg.DiagnosticStatus.ERROR, ERROR_MISMATCHED_PROTOCOL)
-                    rospy.logerr("Mismatched protocol version in packet (%s): lost sync or rosserial_python is from different ros release than the rosserial client" % repr(flag[1]))
-                    protocol_ver_msgs = {
-                            self.protocol_ver1: 'Rev 0 (rosserial 0.4 and earlier)',
-                            self.protocol_ver2: 'Rev 1 (rosserial 0.5+)',
-                            b'\xfd': 'Some future rosserial version'
-                    }
-                    if flag[1] in protocol_ver_msgs:
-                        found_ver_msg = 'Protocol version of client is ' + protocol_ver_msgs[flag[1]]
-                    else:
-                        found_ver_msg = "Protocol version of client is unrecognized"
-                    rospy.loginfo("%s, expected %s" % (found_ver_msg, protocol_ver_msgs[self.protocol_ver]))
+                    # self.sendDiagnostics(diagnostic_msgs.msg.DiagnosticStatus.ERROR, ERROR_MISMATCHED_PROTOCOL)
+                    # rospy.logerr("Mismatched protocol version in packet (%s): lost sync or rosserial_python is from different ros release than the rosserial client" % repr(flag[1]))
+                    # protocol_ver_msgs = {
+                    #         self.protocol_ver1: 'Rev 0 (rosserial 0.4 and earlier)',
+                    #         self.protocol_ver2: 'Rev 1 (rosserial 0.5+)',
+                    #         b'\xfd': 'Some future rosserial version'
+                    # }
+                    # if flag[1] in protocol_ver_msgs:
+                    #     found_ver_msg = 'Protocol version of client is ' + protocol_ver_msgs[flag[1]]
+                    # else:
+                    #     found_ver_msg = "Protocol version of client is unrecognized"
+                    # rospy.loginfo("%s, expected %s" % (found_ver_msg, protocol_ver_msgs[self.protocol_ver]))
                     continue
 
                 # Read message length, checksum (3 bytes)
@@ -755,7 +755,7 @@ class SerialClient(object):
         """
         length = len(msg_bytes)
         if self.buffer_in > 0 and length > self.buffer_in:
-            rospy.logerr("Message from ROS network dropped: message larger than buffer.\n%s" % msg)
+            rospy.logerr("Message from ROS network dropped: message larger than buffer.\n%s" % str(msg_bytes))
             return -1
         else:
             # frame : header (1b) + version (1b) + msg_len(2b) + msg_len_chk(1b) + topic_id(2b) + msg(nb) + msg_topic_id_chk(1b)
